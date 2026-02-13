@@ -1,335 +1,213 @@
-var canvas = document.getElementById("starfield");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Heart Animation</title>
 
-var context = canvas.getContext("2d");
-
-// STARFIELD
-var stars = 500;
-var colorrange = [0, 60, 240];
-var starArray = [];
-
-function getRandom(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: black;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
 }
 
-// initialize stars
-for (var i = 0; i < stars; i++) {
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
 
-    starArray.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        radius: Math.random() * 1.2,
-        hue: colorrange[getRandom(0, colorrange.length - 1)],
-        sat: getRandom(50, 100),
-        opacity: Math.random()
+#textContainer {
+    position: absolute;
+    top: 20%;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-size: 40px;
+    font-weight: 300;
+    opacity: 0;
+    transition: opacity 2.5s ease;
+    pointer-events: none;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="starfield"></canvas>
+<div id="textContainer"></div>
+
+<script>
+// ======================
+// CANVAS SETUP
+// ======================
+const canvas = document.getElementById("starfield");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+// ======================
+// STARFIELD
+// ======================
+const stars = [];
+for (let i = 0; i < 600; i++) {
+    stars.push({
+        x: Math.random() * canvas.width - canvas.width/2,
+        y: Math.random() * canvas.height - canvas.height/2,
+        z: Math.random() * canvas.width
     });
 }
 
-// TEXT TIMING
-var frameNumber = 0;
-var opacity = 0;
-var secondOpacity = 0;
-var thirdOpacity = 0;
+function drawStars() {
 
-// 3D HEART
-var heartParticles = [];
-var heartCount = 2000;
-var heartAngle = 0;
-var heartVisible = false;
+    for (let star of stars) {
 
-function heartShape(t, scale = 12) {
+        star.z -= 0.4;
 
-    return {
+        if (star.z <= 0)
+            star.z = canvas.width;
 
-        x: scale * 16 * Math.pow(Math.sin(t), 3),
+        let k = 128 / star.z;
 
-        y: scale * (
-            13 * Math.cos(t)
-            - 5 * Math.cos(2*t)
-            - 2 * Math.cos(3*t)
-            - Math.cos(4*t)
-        )
-    };
+        let x = star.x * k + canvas.width/2;
+        let y = star.y * k + canvas.height/2;
+
+        let size = (1 - star.z / canvas.width) * 2;
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(x, y, size, size);
+    }
 }
+
+// ======================
+// 3D CLOSED HEART
+// ======================
+let heart = [];
+let angleY = 0;
+let angleX = -0.3; // fixes upside-down issue
 
 function createHeart() {
 
-    heartParticles = [];
+    heart = [];
 
-    for (let i = 0; i < heartCount; i++) {
+    const layers = 35;
+    const points = 200;
 
-        let t = Math.random() * Math.PI * 2;
-        let pos = heartShape(t);
+    for (let l = 0; l < layers; l++) {
 
-        heartParticles.push({
+        let depth = (l - layers/2) * 3;
 
-            x: pos.x,
-            y: pos.y,
-            z: (Math.random() - 0.5) * 200
+        for (let i = 0; i < points; i++) {
 
-        });
+            let t = (i / points) * Math.PI * 2;
+
+            let x = 16 * Math.pow(Math.sin(t), 3);
+            let y =
+                13 * Math.cos(t)
+                - 5 * Math.cos(2*t)
+                - 2 * Math.cos(3*t)
+                - Math.cos(4*t);
+
+            heart.push({
+                x: x * 10,
+                y: -y * 10,
+                z: depth
+            });
+        }
     }
 }
 
 createHeart();
 
-// DRAW STARS
-function drawStars() {
-
-    for (var star of starArray) {
-
-        context.beginPath();
-
-        context.arc(
-            star.x,
-            star.y,
-            star.radius,
-            0,
-            Math.PI * 2
-        );
-
-        context.fillStyle =
-        "hsla(" +
-        star.hue +
-        "," +
-        star.sat +
-        "%,88%," +
-        star.opacity +
-        ")";
-
-        context.fill();
-
-        if (Math.random() > 0.99) {
-            star.opacity = Math.random();
-        }
-    }
-}
-
-// DRAW HEART
 function drawHeart() {
 
-    heartAngle += 0.01;
+    angleY += 0.01;
 
-    let cos = Math.cos(heartAngle);
-    let sin = Math.sin(heartAngle);
+    let cosY = Math.cos(angleY);
+    let sinY = Math.sin(angleY);
 
-    for (let p of heartParticles) {
+    let cosX = Math.cos(angleX);
+    let sinX = Math.sin(angleX);
 
-        let x = p.x * cos - p.z * sin;
-        let z = p.x * sin + p.z * cos;
+    for (let p of heart) {
 
-        let scale = 300 / (300 + z);
+        // rotate Y
+        let x = p.x * cosY - p.z * sinY;
+        let z = p.x * sinY + p.z * cosY;
 
-        let px = x * scale + canvas.width / 2;
-        let py = p.y * scale + canvas.height / 2;
+        // rotate X
+        let y = p.y * cosX - z * sinX;
+        z = p.y * sinX + z * cosX;
+
+        let scale = 400 / (400 + z);
+
+        let px = x * scale + canvas.width/2;
+        let py = y * scale + canvas.height * 0.65; // lower so text doesn't overlap
 
         let size = scale * 3;
 
-        context.fillStyle =
-        "rgba(255, 80, 160," + scale + ")";
-
-        context.fillRect(px, py, size, size);
+        ctx.fillStyle = "rgba(255,80,160," + scale + ")";
+        ctx.fillRect(px, py, size, size);
     }
 }
 
-// TEXT LINE BREAK FUNCTION
-function drawTextWithLineBreaks(lines, x, y, fontSize, lineHeight) {
+// ======================
+// TEXT FADE SYSTEM
+// ======================
+const messages = [
+    "Hi",
+    "I just wanted to tell you something",
+    "You are very special",
+    "And this heart is for you ❤️"
+];
 
-    lines.forEach((line, index) => {
+let textIndex = 0;
+const textDiv = document.getElementById("textContainer");
 
-        context.fillText(
-            line,
-            x,
-            y + index * (fontSize + lineHeight)
-        );
-    });
+function showNextText() {
+
+    textDiv.style.opacity = 0;
+
+    setTimeout(() => {
+
+        textDiv.innerHTML = messages[textIndex];
+        textDiv.style.opacity = 1;
+
+        textIndex++;
+
+    }, 2500);
+
+    if (textIndex < messages.length)
+        setTimeout(showNextText, 7000);
 }
 
-// DRAW TEXT
-function drawText() {
+// start text after delay
+setTimeout(showNextText, 2000);
 
-    var fontSize = Math.min(30, canvas.width / 24);
-    var lineHeight = 8;
-
-    context.font = fontSize + "px Comic Sans MS";
-    context.textAlign = "center";
-
-    context.shadowColor = "rgba(255,100,200,1)";
-    context.shadowBlur = 10;
-
-    context.fillStyle =
-    "rgba(255,150,200," + opacity + ")";
-
-    if(frameNumber < 250){
-
-        context.fillText(
-        "everyday day I cannot believe how lucky I am",
-        canvas.width/2,
-        canvas.height/2);
-
-        opacity += 0.01;
-    }
-
-    if(frameNumber >= 250 && frameNumber < 500){
-
-        context.fillText(
-        "everyday day I cannot believe how lucky I am",
-        canvas.width/2,
-        canvas.height/2);
-
-        opacity -= 0.01;
-    }
-
-    if(frameNumber == 500) opacity = 0;
-
-    if(frameNumber > 500 && frameNumber < 750){
-
-        if (canvas.width < 600){
-
-            drawTextWithLineBreaks(
-            [
-            "amongst trillions and trillions of stars,",
-            "over billions of years"
-            ],
-            canvas.width/2,
-            canvas.height/2,
-            fontSize,
-            lineHeight);
-
-        } else {
-
-            context.fillText(
-            "amongst trillions and trillions of stars, over billions of years",
-            canvas.width/2,
-            canvas.height/2);
-        }
-
-        opacity += 0.01;
-    }
-
-    if(frameNumber >= 750 && frameNumber < 1000){
-
-        opacity -= 0.01;
-    }
-
-    if(frameNumber == 1000) opacity = 0;
-
-    if(frameNumber > 1000 && frameNumber < 1250){
-
-        context.fillText(
-        "to be alive, and to get to spend this life with you",
-        canvas.width/2,
-        canvas.height/2);
-
-        opacity += 0.01;
-    }
-
-    if(frameNumber >= 1250 && frameNumber < 1500){
-
-        opacity -= 0.01;
-    }
-
-    if(frameNumber == 1500) opacity = 0;
-
-    if(frameNumber > 1500 && frameNumber < 1750){
-
-        context.fillText(
-        "is so incredibly, unfathomably unlikely",
-        canvas.width/2,
-        canvas.height/2);
-
-        opacity += 0.01;
-    }
-
-    if(frameNumber >= 1750 && frameNumber < 2000){
-
-        opacity -= 0.01;
-    }
-
-    if(frameNumber == 2000) opacity = 0;
-
-    if(frameNumber > 2000 && frameNumber < 2250){
-
-        context.fillText(
-        "and yet here I am to get the impossible chance to get to know you",
-        canvas.width/2,
-        canvas.height/2);
-
-        opacity += 0.01;
-    }
-
-    if(frameNumber >= 2250 && frameNumber < 2500){
-
-        opacity -= 0.01;
-    }
-
-    if(frameNumber == 2500) opacity = 0;
-
-    if(frameNumber > 2500){
-
-        context.fillStyle =
-        "rgba(255,150,200," + secondOpacity + ")";
-
-        context.fillText(
-        "I love you so much Dalal, more than all the time and space in the universe can contain",
-        canvas.width/2,
-        canvas.height/2);
-
-        secondOpacity += 0.01;
-    }
-
-    if(frameNumber > 2750){
-
-        context.fillStyle =
-        "rgba(255,150,200," + thirdOpacity + ")";
-
-        context.fillText(
-        "and I can't wait to spend all the time in the world to share that love with you!",
-        canvas.width/2,
-        canvas.height/2 + 60);
-
-        thirdOpacity += 0.01;
-    }
-
-    if(frameNumber > 3000){
-
-        context.fillText(
-        "Happy Valentine's Day <3",
-        canvas.width/2,
-        canvas.height/2 + 120);
-
-        heartVisible = true;
-    }
-
-    context.shadowBlur = 0;
-}
-
+// ======================
 // MAIN LOOP
-function draw() {
+// ======================
+function animate() {
 
-    context.fillStyle = "rgba(0,0,0,0.25)";
-    context.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawStars();
-    drawText();
+    drawHeart();
 
-    if(heartVisible){
-
-        drawHeart();
-    }
-
-    frameNumber++;
-
-    requestAnimationFrame(draw);
+    requestAnimationFrame(animate);
 }
 
-draw();
+animate();
 
-// RESIZE
-window.addEventListener("resize", function(){
+</script>
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-});
+</body>
+</html>

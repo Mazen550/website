@@ -1,328 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy Valentine's Day</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #000;
-        }
-        canvas {
-            display: block;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Happy Valentine's Day</title>
+<style>
+    body { margin:0; padding:0; overflow:hidden; background:#000; }
+    canvas { display:block; }
+</style>
 </head>
 <body>
-    <canvas id="starfield"></canvas>
-    <script>
-        var canvas = document.getElementById("starfield");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+<canvas id="starfield"></canvas>
+<script>
+const canvas = document.getElementById("starfield");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-        var context = canvas.getContext("2d");
+// STARFIELD
+const stars = 200;
+const starArray = [];
+const colorrange = [0,60,240];
+function getRandom(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+for(let i=0;i<stars;i++){
+    starArray.push({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        r: Math.random()*1.5,
+        hue: colorrange[getRandom(0,colorrange.length-1)],
+        sat: getRandom(50,100),
+        opacity: Math.random()
+    });
+}
 
-        // STARFIELD
-        var stars = 800;
-        var colorrange = [0, 60, 240];
-        var starArray = [];
+// HEART
+const heartParticles = [];
+const heartCount = 800;
+let heartAngle = 0;
+let heartVisible = false;
 
-        function getRandom(min, max) {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
+function heartShape(t,z){
+    const scale=12;
+    return {
+        x: scale*16*Math.pow(Math.sin(t),3),
+        y: -scale*(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)),
+        z
+    };
+}
 
-        // Initialize background stars
-        for (var i = 0; i < stars; i++) {
-            starArray.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                radius: Math.random() * 1.5,
-                hue: colorrange[getRandom(0, colorrange.length - 1)],
-                sat: getRandom(50, 100),
-                opacity: Math.random()
+function createHeart(){
+    heartParticles.length = 0;
+    const layers = 20;
+    const perLayer = Math.floor(heartCount/layers);
+    for(let l=0;l<layers;l++){
+        const zDepth=(l/layers-0.5)*150;
+        for(let i=0;i<perLayer;i++){
+            const t=(i/perLayer)*Math.PI*2;
+            const pos=heartShape(t,zDepth);
+            const scaleRand=Math.random();
+            heartParticles.push({
+                currentX:(Math.random()-0.5)*canvas.width*2,
+                currentY:(Math.random()-0.5)*canvas.height*2,
+                currentZ:(Math.random()-0.5)*500,
+                targetX: pos.x*scaleRand,
+                targetY: pos.y*scaleRand,
+                targetZ: pos.z + (Math.random()-0.5)*20
             });
         }
+    }
+}
+createHeart();
 
-        // TEXT TIMING
-        var frameNumber = 0;
-        var opacity = 0;
-        var secondOpacity = 0;
-        var thirdOpacity = 0;
+// TEXTS
+const texts = [
+    { text: "everyday day I cannot believe how lucky I am", duration:5 },
+    { text: "amongst trillions and trillions of stars, over billions of years", duration:5 },
+    { text: "to be alive, and to get to spend this life with you", duration:5 },
+    { text: "is so incredibly, unfathomably unlikely", duration:5 },
+    { text: "and yet here I am to get the impossible chance to get to know you", duration:5 },
+    { text: "I love you so much Dalal, more than all the time and space in the universe can contain", duration:5 },
+    { text: "and I can't wait to spend all the time in the world to share that love with you!", duration:5 }
+];
+let startTime = null;
 
-        // 3D HEART (FROM ORIGINAL CODE)
-        var heartParticles = [];
-        var heartCount = 3000;
-        var heartAngle = 0;
-        var heartVisible = false;
+// DRAW FUNCTIONS
+function drawStars(){
+    for(let star of starArray){
+        ctx.beginPath();
+        ctx.arc(star.x,star.y,star.r,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${star.hue},${star.sat}%,88%,${star.opacity})`;
+        ctx.fill();
+        if(Math.random()>0.99) star.opacity=Math.random();
+    }
+}
 
-        // Create a proper 3D heart shape (FROM ORIGINAL CODE)
-        function heartShape(t, layer) {
-            var scale = 12;
-            return {
-                x: scale * 16 * Math.pow(Math.sin(t), 3),
-                y: -scale * (13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)),
-                z: layer
-            };
+function drawHeart(){
+    heartAngle += 0.008;
+    const cos=Math.cos(heartAngle), sin=Math.sin(heartAngle);
+    const sorted = heartParticles.slice().sort((a,b)=> (a.targetX*sin+a.targetZ*cos)-(b.targetX*sin+b.targetZ*cos));
+    for(let p of sorted){
+        p.currentX += (p.targetX - p.currentX)*0.03;
+        p.currentY += (p.targetY - p.currentY)*0.03;
+        p.currentZ += (p.targetZ - p.currentZ)*0.03;
+        let x = p.currentX*cos - p.currentZ*sin;
+        let z = p.currentX*sin + p.currentZ*cos;
+        let scale = 250/(250+z);
+        let px = x*scale + canvas.width/2;
+        let py = p.currentY*scale + canvas.height/2;
+        let size = scale*2.5;
+        let brightness = Math.max(0.3, Math.min(1, scale));
+        ctx.fillStyle=`rgba(255,150,200,${brightness*0.8})`;
+        ctx.fillRect(px,py,size,size);
+    }
+}
+
+// TEXT RENDERING
+function drawText(elapsed){
+    let tTime=0;
+    let currentOpacity=0;
+    for(let i=0;i<texts.length;i++){
+        let start=tTime;
+        let end=start+texts[i].duration;
+        if(elapsed>=start && elapsed<=end){
+            let progress=(elapsed-start)/texts[i].duration;
+            currentOpacity = progress<=0.5? progress*2 : (1-(progress-0.5)*2); // fade in/out
+            ctx.fillStyle=`rgba(255,150,200,${currentOpacity})`;
+            ctx.font=`${Math.min(30,canvas.width/24)}px Comic Sans MS`;
+            ctx.textAlign="center";
+            ctx.shadowColor="rgba(255,100,200,1)";
+            ctx.shadowBlur=10;
+            ctx.fillText(texts[i].text,canvas.width/2,canvas.height/2);
+            if(i>=5) heartVisible=true; // heart appears after last texts
         }
+        tTime=end;
+    }
+}
 
-        function createHeart() {
-            heartParticles = [];
-            
-            // Create multiple layers for a filled 3D heart
-            var layers = 30;
-            var particlesPerLayer = Math.floor(heartCount / layers);
-            
-            for (let layer = 0; layer < layers; layer++) {
-                let zDepth = (layer / layers - 0.5) * 150;
-                
-                for (let i = 0; i < particlesPerLayer; i++) {
-                    let t = (i / particlesPerLayer) * Math.PI * 2;
-                    let pos = heartShape(t, zDepth);
-                    
-                    // FILL THE HEART - particles from center (0) to edge (1)
-                    let randomScale = Math.random();
-                    
-                    heartParticles.push({
-                        // Starting position (scattered)
-                        currentX: (Math.random() - 0.5) * canvas.width * 2,
-                        currentY: (Math.random() - 0.5) * canvas.height * 2,
-                        currentZ: (Math.random() - 0.5) * 1000,
-                        // Target position (heart shape)
-                        targetX: pos.x * randomScale,
-                        targetY: pos.y * randomScale,
-                        targetZ: pos.z + (Math.random() - 0.5) * 20
-                    });
-                }
-            }
-        }
+function animate(timestamp){
+    if(!startTime) startTime=timestamp;
+    const elapsed=(timestamp-startTime)/1000;
+    ctx.fillStyle="rgba(0,0,0,0.25)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    drawStars();
+    drawText(elapsed);
+    if(heartVisible) drawHeart();
+    requestAnimationFrame(animate);
+}
 
-        createHeart();
+animate();
 
-        // DRAW BACKGROUND STARS
-        function drawStars() {
-            for (var star of starArray) {
-                context.beginPath();
-                context.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-                context.fillStyle = "hsla(" + star.hue + "," + star.sat + "%,88%," + star.opacity + ")";
-                context.fill();
-
-                if (Math.random() > 0.99) {
-                    star.opacity = Math.random();
-                }
-            }
-        }
-
-        // DRAW HEART - COMBINING CONVERGENCE + ROTATION
-        function drawHeart() {
-            heartAngle += 0.008;
-
-            let cos = Math.cos(heartAngle);
-            let sin = Math.sin(heartAngle);
-
-            // Sort particles by z-depth for proper rendering
-            let sortedParticles = heartParticles.slice().sort((a, b) => {
-                // Use target position for rotation
-                let za = a.targetX * sin + a.targetZ * cos;
-                let zb = b.targetX * sin + b.targetZ * cos;
-                return za - zb;
-            });
-
-            for (let p of sortedParticles) {
-                // CONVERGENCE: Move current position toward target
-                p.currentX += (p.targetX - p.currentX) * 0.03;
-                p.currentY += (p.targetY - p.currentY) * 0.03;
-                p.currentZ += (p.targetZ - p.currentZ) * 0.03;
-                
-                // ROTATION: Rotate the current position around Y-axis
-                let x = p.currentX * cos - p.currentZ * sin;
-                let z = p.currentX * sin + p.currentZ * cos;
-
-                let scale = 250 / (250 + z);
-
-                // Position heart at center
-                let px = x * scale + canvas.width / 2;
-                let py = p.currentY * scale + canvas.height / 2;
-
-                let size = scale * 2.5;
-
-                // Color based on depth - SAME COLOR AS TEXT
-                let brightness = Math.max(0.3, Math.min(1, scale));
-                context.fillStyle = "rgba(255, 150, 200," + (brightness * 0.8) + ")";
-
-                context.fillRect(px, py, size, size);
-            }
-        }
-
-        // TEXT LINE BREAK FUNCTION
-        function drawTextWithLineBreaks(lines, x, y, fontSize, lineHeight) {
-            lines.forEach((line, index) => {
-                context.fillText(line, x, y + index * (fontSize + lineHeight));
-            });
-        }
-
-        // DRAW TEXT
-        function drawText() {
-            var fontSize = Math.min(30, canvas.width / 24);
-            var lineHeight = 8;
-
-            context.font = fontSize + "px Comic Sans MS";
-            context.textAlign = "center";
-
-            context.shadowColor = "rgba(255,100,200,1)";
-            context.shadowBlur = 10;
-
-            context.fillStyle = "rgba(255,150,200," + opacity + ")";
-
-            // First text
-            if(frameNumber < 300){
-                context.fillText("everyday day I cannot believe how lucky I am", canvas.width/2, canvas.height/2);
-                opacity += 0.0067;
-            }
-
-            if(frameNumber >= 300 && frameNumber < 600){
-                context.fillText("everyday day I cannot believe how lucky I am", canvas.width/2, canvas.height/2);
-            }
-
-            if(frameNumber >= 600 && frameNumber < 900){
-                context.fillText("everyday day I cannot believe how lucky I am", canvas.width/2, canvas.height/2);
-                opacity -= 0.0067;
-            }
-
-            if(frameNumber == 900) opacity = 0;
-
-            // Second text
-            if(frameNumber > 900 && frameNumber < 1200){
-                if (canvas.width < 600){
-                    drawTextWithLineBreaks(
-                        ["amongst trillions and trillions of stars,", "over billions of years"],
-                        canvas.width/2, canvas.height/2, fontSize, lineHeight);
-                } else {
-                    context.fillText("amongst trillions and trillions of stars, over billions of years", canvas.width/2, canvas.height/2);
-                }
-                opacity += 0.0067;
-            }
-
-            if(frameNumber >= 1200 && frameNumber < 1500){
-                if (canvas.width < 600){
-                    drawTextWithLineBreaks(
-                        ["amongst trillions and trillions of stars,", "over billions of years"],
-                        canvas.width/2, canvas.height/2, fontSize, lineHeight);
-                } else {
-                    context.fillText("amongst trillions and trillions of stars, over billions of years", canvas.width/2, canvas.height/2);
-                }
-            }
-
-            if(frameNumber >= 1500 && frameNumber < 1800){
-                if (canvas.width < 600){
-                    drawTextWithLineBreaks(
-                        ["amongst trillions and trillions of stars,", "over billions of years"],
-                        canvas.width/2, canvas.height/2, fontSize, lineHeight);
-                } else {
-                    context.fillText("amongst trillions and trillions of stars, over billions of years", canvas.width/2, canvas.height/2);
-                }
-                opacity -= 0.0067;
-            }
-
-            if(frameNumber == 1800) opacity = 0;
-
-            // Third text
-            if(frameNumber > 1800 && frameNumber < 2100){
-                context.fillText("to be alive, and to get to spend this life with you", canvas.width/2, canvas.height/2);
-                opacity += 0.0067;
-            }
-
-            if(frameNumber >= 2100 && frameNumber < 2400){
-                context.fillText("to be alive, and to get to spend this life with you", canvas.width/2, canvas.height/2);
-            }
-
-            if(frameNumber >= 2400 && frameNumber < 2700){
-                context.fillText("to be alive, and to get to spend this life with you", canvas.width/2, canvas.height/2);
-                opacity -= 0.0067;
-            }
-
-            if(frameNumber == 2700) opacity = 0;
-
-            // Fourth text
-            if(frameNumber > 2700 && frameNumber < 3000){
-                context.fillText("is so incredibly, unfathomably unlikely", canvas.width/2, canvas.height/2);
-                opacity += 0.0067;
-            }
-
-            if(frameNumber >= 3000 && frameNumber < 3300){
-                context.fillText("is so incredibly, unfathomably unlikely", canvas.width/2, canvas.height/2);
-            }
-
-            if(frameNumber >= 3300 && frameNumber < 3600){
-                context.fillText("is so incredibly, unfathomably unlikely", canvas.width/2, canvas.height/2);
-                opacity -= 0.0067;
-            }
-
-            if(frameNumber == 3600) opacity = 0;
-
-            // Fifth text
-            if(frameNumber > 3600 && frameNumber < 3900){
-                context.fillText("and yet here I am to get the impossible chance to get to know you", canvas.width/2, canvas.height/2);
-                opacity += 0.0067;
-            }
-
-            if(frameNumber >= 3900 && frameNumber < 4200){
-                context.fillText("and yet here I am to get the impossible chance to get to know you", canvas.width/2, canvas.height/2);
-            }
-
-            if(frameNumber >= 4200 && frameNumber < 4500){
-                context.fillText("and yet here I am to get the impossible chance to get to know you", canvas.width/2, canvas.height/2);
-                opacity -= 0.0067;
-            }
-
-            if(frameNumber == 4500) opacity = 0;
-
-            // Final messages
-            if(frameNumber > 4500){
-                context.fillStyle = "rgba(255,150,200," + secondOpacity + ")";
-                context.fillText("I love you so much Dalal, more than all the time and space in the universe can contain", canvas.width/2, canvas.height * 0.18);
-                if(secondOpacity < 1) secondOpacity += 0.0067;
-            }
-
-            if(frameNumber > 4800){
-                context.fillStyle = "rgba(255,150,200," + thirdOpacity + ")";
-                context.fillText("and I can't wait to spend all the time in the world to share that love with you!", canvas.width/2, canvas.height * 0.18 + 60);
-                if(thirdOpacity < 1) thirdOpacity += 0.0067;
-            }
-            
-            // Heart appears 3 seconds after last text finishes fading in
-            if(frameNumber > 4980){
-                heartVisible = true;
-            }
-
-            context.shadowBlur = 0;
-        }
-
-        // MAIN LOOP
-        function draw() {
-            context.fillStyle = "rgba(0,0,0,0.25)";
-            context.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawStars();
-            drawText();
-
-            if(heartVisible){
-                drawHeart();
-            }
-
-            frameNumber++;
-            requestAnimationFrame(draw);
-        }
-
-        draw();
-
-        // RESIZE
-        window.addEventListener("resize", function(){
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-    </script>
+// RESIZE
+window.addEventListener("resize",()=>{
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+});
+</script>
 </body>
 </html>
